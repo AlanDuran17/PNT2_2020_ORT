@@ -16,22 +16,36 @@ class ToJson():
         return json.dumps({col.name: getattr(self, col.name) for col in self.__table__.columns })
 
 
-class Departamento(Base, ToJson):                   # public class Departamento extends Base {  }
-    __tablename__ = 'departamento'
+class Producto(Base, ToJson):                   # public class Departamento extends Base {  }
+    __tablename__ = 'productos'
     id = Column(Integer, primary_key=True)
+    precio = Column(float)
     nombre = Column(String)
 
-    
-class Persona(Base, ToJson):
-    __tablename__ = 'persona'
+class ProductoVendido(Base, ToJson):                   # public class Departamento extends Base {  }
+    __tablename__ = 'productosVendidos'
+    id = Column(Integer, primary_key=True)
+    id_producto = Column(Integer, ForeignKey('productos.id'))
+    id_cliente = Column(Integer, ForeignKey('clientes.id'))
+    precio = Column(float)
+    cantidad = Column(Integer)
+    producto = relationship(
+        Producto,
+        backref=backref('productos', uselist=True, cascade='delete,all')
+    )
+    cliente = relationship(
+        Cliente,
+        backref=backref('clientes', uselist=True, cascade='delete,all')
+    )
+
+
+
+class Cliente(Base, ToJson):
+    __tablename__ = 'clientes'
     id = Column(Integer, primary_key=True)
     nombre = Column(String)
     apellido = Column(String)
-    departamento_id = Column(Integer, ForeignKey('departamento.id'))
-    departamento = relationship(
-        Departamento,
-        backref=backref('personas', uselist=True, cascade='delete,all')
-    )
+    
 
 engine = create_engine('sqlite:///base_servido2.sqlite')
 
@@ -46,50 +60,28 @@ def crear_base():
     return 'Ok'
 
 
-@app.route('/departamento', methods=['POST'])
+@app.route('/compra', methods=['POST'])
 def create_departamento():
-    if not 'nombre' in request.form:
-        return Response("Nombre no especificado", status=400)
 
-    nombre = request.form['nombre']
-    if nombre == '':
-        return Response("{'mensaje_error':'Nombre vacio'}", status=400, mimetype='application/json')
+    if request.is_json:
 
-    depto = Departamento(nombre=nombre)
+        req = request.get_json()
+        nombreCliente = req.get("nombreCliente")
+        productos = req.get("productos")
 
-    # depto = Departamento()
-    # depto.nombre = nombre
+        cliente = Cliente(nombre=nombreCliente) 
 
-    s = session()
-    s.add(depto)
-    s.commit()
+        s = session()
+        s.add(cliente)
+        s.commit()
 
-    return Response(str(depto.id), status=201, mimetype='application/json')
+        # recorrer lista de productos y guardarlos en productos vendidos
+    else
+        return Response("{'mensaje_error':'El formato del body no es correcto'}", status=400, mimetype='application/json')
 
-@app.route('/departamento/<int:id>')
-def get_departamento(id):
-    s = session()
-    d = s.query(Departamento).filter(Departamento.id==id).one()
-    
-    return Response(d.to_json(), status=200, mimetype='application/json')
 
-@app.route('/departamento')
-def list_departamento():
-    s = session()
-    dptos = s.query(Departamento)
-    return Response(json.dumps([d.to_json() for d in dptos]), status=200, mimetype='application/json')
 
-@app.route('/departamento', methods=['PUT'])
-def put_departamento():
-    id = request.form['id']
-    nombre = request.form['nombre']
-    
-    s = session()
-    d = s.query(Departamento).filter(Departamento.id==id).one()
-    d.nombre = nombre
-    s.commit()
-    
-    return Response(status=204)
+    return Response(status=201, mimetype='application/json')
 
 
 if __name__ == '__main__':
